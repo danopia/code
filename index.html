@@ -109,13 +109,14 @@
       contentType: "application/json; charset=utf-8",
       dataType: "json",
       success: function(data) {
+        console.log(data);
         var $pre = $('pre').text('');
         
         if (data.compilationResult.exitCode) {
           $pre.append('Compile Error<br>=====================<br><br>');
           $pre.append($('<span>', {text: data.compilationResult.stderr}));
         } else {
-          $pre.append($('<span>', {text: data.stdout}));
+          $pre.append($('<span>', {text: data.stdout + '\n' + data.stderr}));
         };
       },
       failure: function(errMsg) { console.log(errMsg); }
