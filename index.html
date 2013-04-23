@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Danopia Code</title>
+<link href='http://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700' rel='stylesheet' type='text/css'>
+<style type="text/css">
+  * { font-family: 'Ubuntu Mono', 'Andale Mono', 'Courier New', monospace; }
+  
+  /* layout
+   ***********/
+  html, body { margin: 0; padding: 0; height: 100%; }
+  header, #filelist, #editors, section, footer, #slideout, #fade { position: absolute; left: 0; display: block; overflow: hidden; }
+  header { top: 100%; right: 0; height: 33px; border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  #slideout { height: 50%; right: 0; top: -50%; overflow: visible; }
+  #filelist, #editors { top: 35px; bottom: 0; overflow-y: auto; }
+  #filelist { width: 149px; border-right: 1px solid #333; margin: 0; padding: 0; }
+  #filelist ul { margin: 0; padding: 0; }
+  #editors { left: 150px; right: 0; }
+  section { right: 0; top: 0; bottom: 0; }
+  section textarea { width: 100%; height: 100%; -moz-box-sizing: border-box; box-sizing: border-box; }
+  .editor { display: none; }
+  
+  header h1 { margin: 0; padding: 5px; }
+  footer p { margin: 0; text-align: center; }
+  #filelist li { list-style: none; margin: 0; padding: 2px 10px; font-size: 15px; }
+  #filelist li:hover { background: #222; cursor: pointer; }
+  #filelist li.active { background: #333; font-weight: bold; }
+  
+  /* colors
+   ***********/
+  header { color: #fff; background: #111; }
+  footer { color: #fff; } /* background: #111; */
+  body { background: #45484d; background: radial-gradient(ellipse at center, #45484d 0%,#000000 100%); }
+  #slideout { background: #45484d; background: radial-gradient(ellipse at bottom, #45484d 0%,#000000 100%); }
+  #backdrop p { margin-top: 200px; text-align: center; color: #fff; }
+  #filelist { color: #ddd; } /* background: #111; */
+  .editor { background: rgba(0, 0, 0, 0.5); padding: 0.5em; }
+  textarea { color: #ddd; background: transparent; border-width: 0; font-size: 130%; margin: 0; }
+  
+  .editor.active { display: block; }
+  
+  #slideout { z-index: 100; color: #393; padding: 10px; -moz-box-sizing: border-box; box-sizing: border-box; }
+  #fade { z-index: 75; background: #000; opacity: 0; display: none; right: 0; top: 0; bottom: 0; }
+</style>
+
+<div id="slideout">
+  <pre></pre>
+  
+  <header>
+    <h1>Danopia Code</h1>
+  </header>
+</div>
+<div id="fade"></div>
+
+<div id="filelist">
+  <ul></ul>
+  <button id="execute">Execute</button>
+</div>
+<div id="editors">
+  <section id="backdrop">
+    <p>Start by opening a file from the list
+  </section>
+</div>
+
+<footer>
+  <p>site copyright © 2013 <a href="http://danopia.net/">Daniel Lamando</a>
+</footer>
+
+<script src="http://code.jquery.com/jquery-1.9.1.min.js" type="text/javascript"></script>
+<script src="jquery.base64.min.js" type="text/javascript"></script>
+<script>
+  $.loadGist = function (id) {
+    $.get('https://api.github.com/gists/' + id, function (gist) {
+      var name, code;
+      
+      $('.editor').remove();
+      $('#filelist li').remove();
+      
+      $.gist = gist;
+      
+      for (name in gist.files) {
+        file = gist.files[name];
+        
+        var $section = $('<section>').addClass('editor').data('file', file.filename);
+        $section.append($('<textarea>', {text: file.content}));
+        $('#editors').append($section);
+        
+        $('#filelist ul').append($('<li>', {text: file.filename}).data('file', file.filename));
+      };
+    }, 'json');
+  };
+  
+  $.execute = function () {
+    var data = { language: 'c++', inputFiles: {} };
+    
+    $('.editor').each(function (i, editor) {
+      var $editor = $(editor);
+      var name = $editor.data('file');
+      if (name == 'main.cpp') {
+        data.code = $editor.find('textarea').val();
+      } else {
+        data.inputFiles[name] = $.base64.encode($editor.find('textarea').val());
+      };
+    });
+    
+    $.ajax({
+      type: "POST",
+      url: "http://fe01.eval.so/api/evaluate",
+      data: JSON.stringify(data),
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      success: function(data) {
+        var $pre = $('pre').text('');
+        
+        if (data.compilationResult.exitCode) {
+          $pre.append('Compile Error<br>=====================<br><br>');
+          $pre.append($('<span>', {text: data.compilationResult.stderr}));
+        } else {
+          $pre.append($('<span>', {text: data.stdout}));
+        };
+      },
+      failure: function(errMsg) { console.log(errMsg); }
+    });
+    
+    $('pre').text('Loading...');
+    $('#slideout').animate({top: '0%'});
+    $('#fade').show().animate({opacity: 0.7});
+  };
+  
+  $('#fade').click(function (e) {
+    $('#slideout').animate({top: '-50%'});
+    $('#fade').animate({opacity: 0.}, function () {
+      $('#fade').hide();
+    });
+  });
+  
+  $('#filelist ul').on('click', 'li', function (e) {
+    e.preventDefault();
+    
+    $('#filelist li').removeClass('active');
+    var file = $(e.target).data('file');
+    $(e.target).addClass('active');
+    
+    $('.editor').removeClass('active');
+    $('#backdrop').hide();
+    $('.editor').each(function (i, editor) {
+      var $editor = $(editor);
+      
+      if ($editor.data('file') == file)
+        $editor.addClass('active');
+    });
+  });
+  
+  $('#execute').click(function (e) {
+    e.preventDefault();
+    
+    $.execute();
+  });
+  
+  $.loadGist(5418203); // 5417894
+</script>
