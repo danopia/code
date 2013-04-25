@@ -2,6 +2,10 @@
 <meta charset="utf-8">
 <title>Danopia Code</title>
 <link href='http://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="codemirror/ambiance">
+<link rel="stylesheet" href="codemirror/style">
+<script src="codemirror/index"></script>
+<script src="codemirror/clike"></script>
 <style type="text/css">
   * { font-family: 'Ubuntu Mono', 'Andale Mono', 'Courier New', monospace; }
   
@@ -16,54 +20,70 @@
   #filelist ul { margin: 0; padding: 0; }
   #editors { left: 150px; right: 0; }
   section { right: 0; top: 0; bottom: 0; }
-  section textarea { width: 100%; height: 100%; -moz-box-sizing: border-box; box-sizing: border-box; }
+  section .CodeMirror { width: 100%; height: 100%; -moz-box-sizing: border-box; box-sizing: border-box; }
   .editor { display: none; }
+  .CodeMirror { position: absolute; }
   
   header h1 { margin: 0; padding: 5px; }
-  footer p { margin: 0; text-align: center; }
-  #filelist li { list-style: none; margin: 0; padding: 2px 10px; font-size: 15px; }
+  footer { position: absolute; bottom: 1em; right: 0; left: 0; }
+  footer p { margin: 0.2em 0; text-align: center; }
+  footer a { color: #ccc; }
+  #filelist li { list-style: none; margin: 0; padding: 2px 10px; font-size: 13px; }
   #filelist li:hover { background: #222; cursor: pointer; }
   #filelist li.active { background: #333; font-weight: bold; }
   
   /* colors
    ***********/
-  header { color: #fff; background: #111; }
-  footer { color: #fff; } /* background: #111; */
-  body { background: #45484d; background: radial-gradient(ellipse at center, #45484d 0%,#000000 100%); }
-  #slideout { background: #45484d; background: radial-gradient(ellipse at bottom, #45484d 0%,#000000 100%); }
-  #backdrop p { margin-top: 200px; text-align: center; color: #fff; }
-  #filelist { color: #ddd; } /* background: #111; */
-  .editor { background: rgba(0, 0, 0, 0.5); padding: 0.5em; }
-  textarea { color: #ddd; background: transparent; border-width: 0; font-size: 130%; margin: 0; }
+  #backdrop p { margin-top: 200px; text-align: center; }
+  .CodeMirror { background: transparent; border-width: 0; font-size: 120%; }
   
   .editor.active { display: block; }
   
   #slideout { z-index: 100; color: #393; padding: 10px; -moz-box-sizing: border-box; box-sizing: border-box; }
+  #slideout pre { overflow: auto; position: absolute; top: 0; bottom: 0; left: 1em; right: 1em; }
   #fade { z-index: 75; background: #000; opacity: 0; display: none; right: 0; top: 0; bottom: 0; }
+  button, #gists { width: 100%; margin-top: 0.5em; padding: 0.2em 0; font-size: 11px; }
 </style>
 
-<div id="slideout">
+<div id="slideout" class="texture">
   <pre></pre>
   
-  <header>
+  <header class="texture">
     <h1>Danopia Code</h1>
   </header>
 </div>
 <div id="fade"></div>
 
 <div id="filelist">
-  <ul></ul>
+  <ul id="files"></ul>
+  
   <button id="execute">Execute</button>
+  <button id="addfile">Add file</button>
+  <button id="loadgist">Load gist</button>
+  
+  <ul id="gists">
+    <li id="5457822">PL &nbsp;1 Cards</li>
+    <li id="5418203">Lab&nbsp;1 DUPoint</li>
+    <li id="5457831">PL &nbsp;2 DULine</li>
+    <li id="5457839">PL &nbsp;3 DULine</li>
+    <li id="5457846">PL &nbsp;4 Bode's Law</li>
+    <li id="bb125b5b1fbdbea9167b">Lab&nbsp;4 Eng Length</li>
+    <li id="5457854">Lab&nbsp;4 Bit test</li>
+    <li id="5457872">PL &nbsp;5 Palindrome</li>
+    <li id="5457877">PL &nbsp;5 Fast power</li>
+  </ul>
+  
+  <footer>
+    <p>by <a href="http://danopia.net/">Daniel Lamando</a></p>
+    <p>compilation by <a href="http://eval.so/">eval.so</a></p>
+    <p>editor is <a href="http://codemirror.net/">codemirror</a></p>
+  </footer>
 </div>
-<div id="editors">
+<form id="editors">
   <section id="backdrop">
     <p>Start by opening a file from the list
   </section>
-</div>
-
-<footer>
-  <p>site copyright © 2013 <a href="http://danopia.net/">Daniel Lamando</a>
-</footer>
+</form>
 
 <script src="http://code.jquery.com/jquery-1.9.1.min.js" type="text/javascript"></script>
 <script src="jquery.base64.min.js" type="text/javascript"></script>
@@ -73,20 +93,42 @@
       var name, code;
       
       $('.editor').remove();
-      $('#filelist li').remove();
+      $('#files li').remove();
       
       $.gist = gist;
       
       for (name in gist.files) {
         file = gist.files[name];
-        
-        var $section = $('<section>').addClass('editor').data('file', file.filename);
-        $section.append($('<textarea>', {text: file.content}));
-        $('#editors').append($section);
-        
-        $('#filelist ul').append($('<li>', {text: file.filename}).data('file', file.filename));
+        $.addFile(file.filename, file.content);
       };
+      $('li:first').click();
     }, 'json');
+  };
+  
+  $.newProject = function () {
+    $('.editor').remove();
+    $('#files li').remove();
+    
+    $.gist = null;
+    
+    $.addFile('main.cpp', '#include <iostream>\nusing namespace std;\n\nint main() {\n  cout << "Hello world" << endl;\n}\n');
+    $('li:first').click();
+  };
+  
+  $.addFile = function (name, contents) {
+    var $section = $('<section>').addClass('editor').data('file', name).appendTo($('#editors'));
+    
+    var editor = CodeMirror($section[0], {
+      value: contents || '',
+      lineNumbers: true,
+      matchBrackets: true,
+      lineWrapping: true,
+      theme: "ambiance",
+      mode: "text/x-c++src"
+    });
+    $section.data('editor', editor);
+    
+    $('#files').append($('<li>', {text: name}).data('file', name).data('editor', editor));
   };
   
   $.execute = function () {
@@ -96,9 +138,9 @@
       var $editor = $(editor);
       var name = $editor.data('file');
       if (name == 'main.cpp') {
-        data.code = $editor.find('textarea').val();
+        data.code = $editor.data('editor').getValue();
       } else {
-        data.inputFiles[name] = $.base64.encode($editor.find('textarea').val());
+        data.inputFiles[name] = $.base64.encode($editor.data('editor').getValue());
       };
     });
     
@@ -110,19 +152,26 @@
       dataType: "json",
       success: function(data) {
         console.log(data);
-        var $pre = $('pre').text('');
+        var $pre = $('#slideout pre').text('');
         
         if (data.compilationResult.exitCode) {
           $pre.append('Compile Error<br>=====================<br><br>');
           $pre.append($('<span>', {text: data.compilationResult.stderr}));
         } else {
-          $pre.append($('<span>', {text: data.stdout + '\n' + data.stderr}));
+          $pre.append($('<span>', {text: data.stdout}));
+          $pre.append('\nExited with code ' + data.exitCode);
         };
       },
-      failure: function(errMsg) { console.log(errMsg); }
+      failure: function(errMsg) {
+        console.log(errMsg);
+        
+        var $pre = $('#slideout pre');
+        $pre.text('Server-side error. Please try again.\n\n');
+        $pre.append($('<span>', {text: errMsg}));
+      }
     });
     
-    $('pre').text('Loading...');
+    $('#slideout pre').text('Loading...');
     $('#slideout').animate({top: '0%'});
     $('#fade').show().animate({opacity: 0.7});
   };
@@ -134,10 +183,10 @@
     });
   });
   
-  $('#filelist ul').on('click', 'li', function (e) {
+  $('#files').on('click', 'li', function (e) {
     e.preventDefault();
     
-    $('#filelist li').removeClass('active');
+    $('#files li').removeClass('active');
     var file = $(e.target).data('file');
     $(e.target).addClass('active');
     
@@ -149,6 +198,17 @@
       if ($editor.data('file') == file)
         $editor.addClass('active');
     });
+    $(e.target).data('editor').refresh();
+  });
+  
+  $('#gists').on('click', 'li', function (e) {
+    e.preventDefault();
+    
+    $('#gists li').removeClass('active');
+    var id = $(e.target).attr('id');
+    $(e.target).addClass('active');
+    
+    $.loadGist(id);
   });
   
   $('#execute').click(function (e) {
@@ -157,5 +217,22 @@
     $.execute();
   });
   
-  $.loadGist(5418203); // 5417894
+  $('#addfile').click(function (e) {
+    e.preventDefault();
+    
+    var filename = prompt('Enter filename');
+    if (filename.length)
+      $.addFile(filename);
+  });
+  
+  $('#loadgist').click(function (e) {
+    e.preventDefault();
+    
+    var id = prompt('Enter gist ID');
+    if (id.length)
+      $.loadGist(id);
+  });
+  
+  $.newProject();
+  //$.loadGist(5418203); // 5417894
 </script>
