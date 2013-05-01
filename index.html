@@ -239,8 +239,11 @@
       $.loadGist(id);
   });
   
-  $.newProject();
-  //$.loadGist(5418203); // 5417894
+	if (location.hash && location.hash.length > 1) {
+		$.loadGist(+location.hash.substring(1));
+	} else {
+		$.newProject();
+  }
 </script>
 
 <script type="text/javascript">
