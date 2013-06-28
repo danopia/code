@@ -240,7 +240,7 @@
   });
   
 	if (location.hash && location.hash.length > 1) {
-		$.loadGist(+location.hash.substring(1));
+		$.loadGist(location.hash.substring(1).replace(/[^a-z0-9]/ig, ''));
 	} else {
 		$.newProject();
   }
